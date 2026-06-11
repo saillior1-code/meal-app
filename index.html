@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
+<title>우리집 식단앱</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="식단앱">
+<meta name="theme-color" content="#F5F9F7">
+<link rel="apple-touch-icon" href="icon.png">
+<style>
+  :root{
+    --bg:#F5F9F7; --card:#FFFFFF; --ink:#1E2B27; --muted:#5E6F69;
+    --line:#DCE6E2; --green:#1D6E52; --amber:#C77B1F;
+    --green-bg:#E8F3EE; --amber-bg:#FBF3E4; --radius:14px;
+    --c-cold:#2E6FA3; --c-cold-bg:#E9F2F9;
+    --c-frz:#5B6FB5; --c-frz-bg:#ECEFF9;
+    --c-veg:#1D6E52; --c-veg-bg:#E8F3EE;
+    --c-dry:#A3622E; --c-dry-bg:#F8F0E7;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent}
+  body{margin:0; background:var(--bg); color:var(--ink);
+    font-family:"Apple SD Gothic Neo","Pretendard","Noto Sans KR",system-ui,sans-serif;
+    font-size:16px; line-height:1.5}
+  .wrap{max-width:480px; margin:0 auto; padding:18px 16px 60px}
+  header h1{font-size:21px; font-weight:700; margin:2px 0 14px; letter-spacing:-0.3px}
+  .nav{display:grid; grid-template-columns:repeat(4,1fr); gap:6px; margin-bottom:16px;
+    position:sticky; top:0; background:var(--bg); padding:6px 0; z-index:10}
+  .nav button{border:1.5px solid var(--line); background:var(--card); border-radius:12px;
+    padding:11px 2px; font-size:14px; font-weight:600; color:var(--muted); cursor:pointer; font-family:inherit}
+  .nav button.on{background:var(--ink); border-color:var(--ink); color:#fff}
+  .panel{background:var(--card); border:1px solid var(--line); border-radius:var(--radius);
+    padding:16px; margin-bottom:14px}
+  .sec-title{font-size:13px; font-weight:700; color:var(--muted); margin:0 0 10px; letter-spacing:0.02em}
+  .hint{font-size:12.5px; color:var(--muted); margin:8px 0 0; line-height:1.6}
+  .pagebtn{width:100%; border:none; background:var(--ink); color:#fff; border-radius:12px;
+    padding:14px; font-size:15px; font-weight:700; cursor:pointer; font-family:inherit; margin-top:4px}
+  .pagebtn.ghost{background:var(--card); color:var(--muted); border:1.5px solid var(--line); font-weight:600}
+  input[type=text], textarea{width:100%; border:1.5px solid var(--line); border-radius:11px;
+    padding:10px 13px; font-size:15px; font-family:inherit; background:var(--bg); color:var(--ink)}
+  input:focus, textarea:focus{outline:none; border-color:var(--green)}
+  textarea{resize:none; line-height:1.55}
+  .toast{position:fixed; top:18px; left:50%; transform:translateX(-50%);
+    background:var(--ink); color:#fff; font-size:14px; font-weight:600;
+    padding:10px 18px; border-radius:999px; opacity:0; transition:opacity 0.25s; pointer-events:none; z-index:60}
+  .toast.show{opacity:1}
+  .sheet{display:none; position:fixed; left:16px; right:16px; bottom:20px; max-width:448px;
+    margin:0 auto; background:var(--card); border:1px solid var(--line); border-radius:var(--radius);
+    padding:14px; box-shadow:0 8px 30px rgba(20,40,35,0.15); z-index:55}
+  .sheet.show{display:block}
+  .sheet h3{font-size:14px; margin:0 0 8px; font-weight:700}
+  .sheet textarea{height:150px; font-size:13px}
+  .sheet .ok{margin-top:8px; width:100%; border:none; background:var(--green); color:#fff;
+    border-radius:10px; padding:11px; font-size:14px; font-weight:600; cursor:pointer; font-family:inherit}
+
+  /* 재고 */
+  .legend{display:flex; gap:14px; font-size:12px; color:var(--muted); margin:0 0 10px}
+  .legend i{width:8px; height:8px; border-radius:50%; display:inline-block; margin-right:5px}
+  .ftabs{display:grid; grid-template-columns:repeat(4,1fr); gap:6px; margin-bottom:12px}
+  .ftab{border:1.5px solid var(--line); background:var(--card); border-radius:12px;
+    padding:9px 2px; font-size:13.5px; font-weight:600; color:var(--muted); text-align:center; cursor:pointer; font-family:inherit}
+  .ftab .cnt{display:block; font-size:11px; font-weight:500; margin-top:1px}
+  .ftab.on[data-k="cold"]{background:var(--c-cold-bg); border-color:var(--c-cold); color:var(--c-cold)}
+  .ftab.on[data-k="frz"]{background:var(--c-frz-bg); border-color:var(--c-frz); color:var(--c-frz)}
+  .ftab.on[data-k="veg"]{background:var(--c-veg-bg); border-color:var(--c-veg); color:var(--c-veg)}
+  .ftab.on[data-k="dry"]{background:var(--c-dry-bg); border-color:var(--c-dry); color:var(--c-dry)}
+  .items{display:flex; flex-wrap:wrap; gap:8px; min-height:40px}
+  .empty{font-size:13px; color:var(--muted); padding:6px 2px}
+  .item{display:inline-flex; align-items:center; gap:7px; border-radius:999px;
+    padding:9px 6px 9px 13px; font-size:15px; font-weight:500; cursor:pointer;
+    border:1.5px solid transparent; user-select:none}
+  .item.full{background:var(--green-bg); color:#14523D; border-color:#BFDCCF}
+  .item.low{background:var(--amber-bg); color:#7A4A12; border-color:#EBD3A8}
+  .item .dot{width:8px; height:8px; border-radius:50%}
+  .item.full .dot{background:var(--green)}
+  .item.low .dot{background:var(--amber)}
+  .item .del{width:24px; height:24px; display:inline-flex; align-items:center; justify-content:center;
+    border-radius:50%; opacity:0.55; flex:none}
+  .addrow{display:flex; gap:8px; margin-top:13px}
+  .addrow input{flex:1}
+  .addrow button{border:none; background:var(--green); color:#fff; border-radius:11px;
+    padding:0 18px; font-size:15px; font-weight:600; cursor:pointer; font-family:inherit}
+  .chips{display:flex; flex-wrap:wrap; gap:7px; margin-top:10px}
+  .chip{border:1.5px dashed var(--line); background:var(--card); border-radius:999px;
+    padding:8px 13px; font-size:14px; color:var(--muted); cursor:pointer; font-family:inherit}
+
+  /* 식단표 */
+  .daycard{border:1px solid var(--line); border-radius:12px; padding:12px 13px; margin-bottom:10px; background:var(--card)}
+  .dayhead{display:flex; align-items:baseline; gap:8px; margin-bottom:8px}
+  .dayname{font-size:15px; font-weight:700}
+  .theme{font-size:12px; color:var(--green); background:var(--green-bg); border-radius:999px; padding:3px 10px; font-weight:600}
+  .mealrow{display:flex; align-items:center; gap:8px; margin-bottom:6px}
+  .mealrow label{flex:0 0 36px; font-size:12.5px; color:var(--muted); font-weight:600}
+  .mealrow input{padding:8px 11px; font-size:14.5px}
+  .mine{background:var(--green-bg); border:1px solid #BFDCCF; border-radius:12px; padding:12px 13px; margin-bottom:12px}
+  .mine .sec-title{color:#14523D}
+  .mine .mealrow label{color:#3E6B59}
+  details.mine summary{font-size:13.5px; font-weight:700; color:#14523D; cursor:pointer; list-style:none}
+  details.mine summary::before{content:"▸ "; }
+  details.mine[open] summary::before{content:"▾ "}
+  details.mine > div{margin-top:10px}
+
+  /* 레시피 */
+  .rcard{border:1px solid var(--line); border-radius:12px; padding:12px 13px; margin-bottom:10px}
+  .rcard.hit{border-color:#BFDCCF; background:var(--green-bg)}
+  .rtop{display:flex; align-items:center; gap:8px}
+  .rname{font-size:15.5px; font-weight:600; flex:1}
+  .rdel{color:var(--muted); font-size:18px; padding:2px 6px; cursor:pointer; background:none; border:none}
+  .rmemo{font-size:13px; color:var(--muted); margin:5px 0 8px; white-space:pre-wrap}
+  .reacts{display:flex; gap:7px}
+  .react{border:1.5px solid var(--line); background:var(--card); border-radius:999px;
+    padding:6px 12px; font-size:13.5px; color:var(--muted); cursor:pointer; font-family:inherit; font-weight:600}
+  .react.on{background:#14523D; border-color:#14523D; color:#fff}
+  .raddbox{border:1.5px dashed var(--line); border-radius:12px; padding:12px; margin-bottom:12px}
+  .raddbox input{margin-bottom:8px}
+  .raddbox textarea{height:64px; font-size:14px; margin-bottom:8px}
+  .filterrow{display:flex; gap:7px; margin-bottom:12px}
+  .filterrow button{border:1.5px solid var(--line); background:var(--card); border-radius:999px;
+    padding:7px 13px; font-size:13px; color:var(--muted); cursor:pointer; font-family:inherit; font-weight:600}
+  .filterrow button.on{background:var(--green-bg); border-color:var(--green); color:var(--green)}
+
+  /* 입맛 */
+  .tcard{margin-bottom:14px}
+  .tcard .who{font-size:14.5px; font-weight:700; margin-bottom:6px}
+  .tcard textarea{height:96px; font-size:14px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header><h1>우리집 식단앱</h1></header>
+  <div class="nav" id="nav">
+    <button data-p="fridge">재고</button>
+    <button data-p="week">식단표</button>
+    <button data-p="recipe">레시피</button>
+    <button data-p="taste">입맛</button>
+  </div>
+  <div id="page"></div>
+</div>
+
+<div class="sheet" id="sheet">
+  <h3 id="sheetTitle">클로드에게 보낼 목록</h3>
+  <textarea id="outText" readonly></textarea>
+  <button class="ok" id="closeSheet">닫기</button>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const SECTIONS = [
+  {k:"cold", name:"냉장실", suggest:["계란","두부","우유","김치","돼지고기","닭다리살","어묵","햄","체다치즈","요거트","버터","쌈장","연두부","스팸"]},
+  {k:"frz",  name:"냉동실", suggest:["만두","냉동밥","다진마늘","새우","고등어","다짐육","베이컨","떡","식빵","냉동채소","미니돈까스","비엔나소세지"]},
+  {k:"veg",  name:"채소칸", suggest:["양파","대파","당근","애호박","감자","고구마","버섯","오이","파프리카","브로콜리","가지","알배기배추","마늘","방울토마토"]},
+  {k:"dry",  name:"실온",   suggest:["쌀","라면","파스타면","참치캔","김밥용김","카레","토마토소스","국수","미역","렌틸콩","귀리","템페"]}
+];
+const DAYS = [
+  {d:"금", theme:"파스타"},
+  {d:"토", theme:"볶음밥·도리아"},
+  {d:"일", theme:"닭다리살 요리"},
+  {d:"월", theme:"고기구이"},
+  {d:"화", theme:"면요리"},
+  {d:"수", theme:"지오가 고른 요리"},
+  {d:"목", theme:"외국요리"}
+];
+const WHO = [{k:"j",name:"지오"},{k:"h",name:"남편"},{k:"m",name:"나"}];
+
+let fridge = {cold:[], frz:[], veg:[], dry:[]};
+let week = null;
+let recipes = [];
+let tastes = null;
+let page = "fridge", fActive = "cold", rFilter = "all";
+let saveTimers = {};
+
+function $(id){return document.getElementById(id)}
+function esc(s){const d=document.createElement("div"); d.textContent=s||""; return d.innerHTML}
+
+function defaultWeek(){
+  const days = {};
+  DAYS.forEach(x=> days[x.d] = {b:"", l:"", n:""});
+  return {days, snack:"과일, 우유", prep:"",
+    mine:{b:"방탄커피, 그릭요거트, 연두부", l:"닭가슴살(템페·후무스), 냉동채소", n:"렌틸콩귀리밥, 반찬자유", s:"호밀빵, 무가당두유"}};
+}
+function defaultTastes(){
+  return {
+    j:"감칠맛 있고 복합적인 맛에 잘 반응. 채소는 잘게 썰거나 숨기면 먹음. 좋아함: . 싫어함: ",
+    h:"양이 충분하고 친숙한 맛 선호. 좋아함: . 싫어함: ",
+    m:"저탄수 고단백 기본. 감칠맛·복합적인 맛 좋아함. 오전~저녁은 건강식 가능."
+  };
+}
+
+function loadKey(key, fallback){
+  try{
+    const v = localStorage.getItem(key);
+    if(v) return JSON.parse(v);
+  }catch(e){}
+  return fallback;
+}
+function save(key, value){
+  clearTimeout(saveTimers[key]);
+  saveTimers[key] = setTimeout(()=>{
+    try{ localStorage.setItem(key, JSON.stringify(value)); }
+    catch(e){ toast("저장이 안 됐어요. 저장 공간을 확인해 주세요"); }
+  }, 400);
+}
+
+function init(){
+  fridge  = loadKey("fridge-inventory", fridge);
+  week    = loadKey("meal-week", defaultWeek());
+  recipes = loadKey("meal-recipes", []);
+  tastes  = loadKey("meal-tastes", defaultTastes());
+  render();
+}
+
+function render(){
+  document.querySelectorAll("#nav button").forEach(b=>{
+    b.className = (b.dataset.p===page ? "on" : "");
+    b.onclick = ()=>{ page = b.dataset.p; render(); };
+  });
+  if(page==="fridge") renderFridge();
+  else if(page==="week") renderWeek();
+  else if(page==="recipe") renderRecipes();
+  else renderTastes();
+}
+
+/* ---------- 재고 ---------- */
+function renderFridge(){
+  const p = $("page");
+  let h = '<div class="legend"><span><i style="background:var(--green)"></i>충분</span><span><i style="background:var(--amber)"></i>조금 남음</span></div>';
+  h += '<div class="ftabs">';
+  SECTIONS.forEach(s=>{
+    h += '<button class="ftab'+(s.k===fActive?" on":"")+'" data-k="'+s.k+'">'+s.name+'<span class="cnt">'+fridge[s.k].length+'개</span></button>';
+  });
+  h += '</div><div class="panel"><p class="sec-title" id="fsec"></p><div class="items" id="fitems"></div>';
+  h += '<div class="addrow"><input id="newItem" type="text" placeholder="직접 입력 (예: 깻잎)" enterkeyhint="done"><button id="addBtn">추가</button></div>';
+  h += '<p class="sec-title" style="margin-top:16px">자주 쓰는 재료 — 탭해서 추가</p><div class="chips" id="fchips"></div></div>';
+  h += '<button class="pagebtn" id="askMeal">클로드에게 식단 요청 목록 만들기</button>';
+  h += '<p class="hint">재고 + 가족 입맛 + 반응 좋았던 레시피를 한 번에 묶어서 복사돼요. 클로드 채팅에 붙여넣으면 이번 주 식단이 나와요.</p>';
+  p.innerHTML = h;
+
+  document.querySelectorAll(".ftab").forEach(b=> b.onclick = ()=>{ fActive=b.dataset.k; render(); });
+  const sec = SECTIONS.find(s=>s.k===fActive);
+  $("fsec").textContent = sec.name + "에 있는 것";
+  const wrap = $("fitems");
+  if(fridge[fActive].length===0){
+    wrap.innerHTML = '<p class="empty">아직 비어 있어요. 아래에서 탭해서 채워주세요.</p>';
+  }else{
+    fridge[fActive].forEach((it,i)=>{
+      const el = document.createElement("span");
+      el.className = "item " + (it.s==="low"?"low":"full");
+      el.innerHTML = '<span class="dot"></span>'+esc(it.n)+'<span class="del" role="button" aria-label="삭제">×</span>';
+      el.onclick = (e)=>{
+        if(e.target.classList.contains("del")) fridge[fActive].splice(i,1);
+        else it.s = (it.s==="low"?"full":"low");
+        save("fridge-inventory", fridge); render();
+      };
+      wrap.appendChild(el);
+    });
+  }
+  const chips = $("fchips");
+  const have = new Set(fridge[fActive].map(x=>x.n));
+  sec.suggest.filter(n=>!have.has(n)).forEach(n=>{
+    const c = document.createElement("button");
+    c.className="chip"; c.textContent="+ "+n;
+    c.onclick = ()=>{ fridge[fActive].push({n:n,s:"full"}); save("fridge-inventory",fridge); render(); };
+    chips.appendChild(c);
+  });
+  const add = ()=>{
+    const v = $("newItem").value.trim(); if(!v) return;
+    if(!fridge[fActive].some(x=>x.n===v)){ fridge[fActive].push({n:v,s:"full"}); save("fridge-inventory",fridge); }
+    $("newItem").value=""; render();
+  };
+  $("addBtn").onclick = add;
+  $("newItem").addEventListener("keydown", e=>{ if(e.key==="Enter"){e.preventDefault(); add();} });
+  $("askMeal").onclick = ()=> showSheet("클로드에게 보낼 식단 요청", buildAskText());
+}
+
+/* ---------- 식단표 ---------- */
+function renderWeek(){
+  const p = $("page");
+  let h = '<details class="mine"><summary>수인님 고정 식단 (탭해서 열기)</summary><div>';
+  [["b","아침"],["l","점심"],["n","저녁"],["s","간식"]].forEach(([k,label])=>{
+    h += '<div class="mealrow"><label>'+label+'</label><input data-mine="'+k+'" type="text" value="'+esc(week.mine[k])+'"></div>';
+  });
+  h += '</div></details>';
+  h += '<p class="sec-title" style="margin-top:4px">지오 · 남편 식단표 (금~목)</p>';
+  DAYS.forEach(x=>{
+    const d = week.days[x.d];
+    h += '<div class="daycard"><div class="dayhead"><span class="dayname">'+x.d+'요일</span><span class="theme">저녁: '+x.theme+'</span></div>';
+    h += '<div class="mealrow"><label>아침</label><input data-day="'+x.d+'" data-m="b" type="text" value="'+esc(d.b)+'" placeholder="주먹밥·계란밥·국물요리 등"></div>';
+    if(x.d==="토"||x.d==="일"){
+      h += '<div class="mealrow"><label>점심</label><input data-day="'+x.d+'" data-m="l" type="text" value="'+esc(d.l)+'" placeholder="밑반찬 3종 + 인스턴트"></div>';
+    }
+    h += '<div class="mealrow"><label>저녁</label><input data-day="'+x.d+'" data-m="n" type="text" value="'+esc(d.n)+'" placeholder="'+x.theme+'"></div></div>';
+  });
+  h += '<div class="panel"><div class="mealrow"><label style="flex:0 0 64px">간식</label><input id="wSnack" type="text" value="'+esc(week.snack)+'"></div>';
+  h += '<div class="mealrow" style="align-items:flex-start"><label style="flex:0 0 64px;padding-top:9px">준비 메모</label><textarea id="wPrep" style="height:60px" placeholder="예: 나물 만들기(금), 감자조림(토)">'+esc(week.prep)+'</textarea></div></div>';
+  h += '<button class="pagebtn" id="exportWeek">이번 주 식단표 글로 복사</button>';
+  h += '<button class="pagebtn ghost" id="resetWeek" style="margin-top:8px">새 주 시작 (비우기)</button>';
+  p.innerHTML = h;
+
+  document.querySelectorAll("[data-mine]").forEach(inp=> inp.oninput = ()=>{ week.mine[inp.dataset.mine]=inp.value; save("meal-week",week); });
+  document.querySelectorAll("[data-day]").forEach(inp=> inp.oninput = ()=>{ week.days[inp.dataset.day][inp.dataset.m]=inp.value; save("meal-week",week); });
+  $("wSnack").oninput = ()=>{ week.snack=$("wSnack").value; save("meal-week",week); };
+  $("wPrep").oninput = ()=>{ week.prep=$("wPrep").value; save("meal-week",week); };
+  $("exportWeek").onclick = ()=> showSheet("이번 주 식단표", buildWeekText());
+  $("resetWeek").onclick = ()=>{
+    if(confirm("식단표를 비우고 새 주를 시작할까요? (고정 식단·간식은 유지돼요)")){
+      DAYS.forEach(x=> week.days[x.d]={b:"",l:"",n:""});
+      week.prep=""; save("meal-week",week); render();
+    }
+  };
+}
+
+/* ---------- 레시피 ---------- */
+function renderRecipes(){
+  const p = $("page");
+  let h = '<div class="raddbox"><input id="rName" type="text" placeholder="요리 이름 (예: 버섯닭꼬치구이)">';
+  h += '<textarea id="rMemo" placeholder="재료·포인트 메모 (선택)"></textarea>';
+  h += '<button class="pagebtn" id="rAdd" style="margin:0">레시피 추가</button></div>';
+  h += '<div class="filterrow"><button data-f="all"'+(rFilter==="all"?' class="on"':'')+'>전체</button><button data-f="hit"'+(rFilter==="hit"?' class="on"':'')+'>반응 좋았던 것</button></div>';
+  let list = recipes.map((r,i)=>({r,i}));
+  if(rFilter==="hit") list = list.filter(x=> WHO.some(w=>x.r.re[w.k]));
+  list.sort((a,b)=>{
+    const sa = WHO.filter(w=>a.r.re[w.k]).length, sb = WHO.filter(w=>b.r.re[w.k]).length;
+    return sb-sa;
+  });
+  if(list.length===0){
+    h += '<p class="empty" style="padding:10px 4px">아직 레시피가 없어요. 해본 요리를 적고, 반응 좋았던 사람을 탭해 두면 다음 식단 짤 때 클로드가 참고해요.</p>';
+  }
+  list.forEach(({r,i})=>{
+    const hit = WHO.some(w=>r.re[w.k]);
+    h += '<div class="rcard'+(hit?" hit":"")+'"><div class="rtop"><span class="rname">'+esc(r.n)+'</span><button class="rdel" data-del="'+i+'" aria-label="삭제">×</button></div>';
+    if(r.m) h += '<p class="rmemo">'+esc(r.m)+'</p>';
+    h += '<div class="reacts">';
+    WHO.forEach(w=>{
+      h += '<button class="react'+(r.re[w.k]?" on":"")+'" data-ri="'+i+'" data-w="'+w.k+'">'+w.name+' 👍</button>';
+    });
+    h += '</div></div>';
+  });
+  p.innerHTML = h;
+
+  $("rAdd").onclick = ()=>{
+    const n = $("rName").value.trim(); if(!n) return;
+    recipes.unshift({n:n, m:$("rMemo").value.trim(), re:{j:false,h:false,m:false}});
+    save("meal-recipes",recipes); render();
+  };
+  document.querySelectorAll(".filterrow button").forEach(b=> b.onclick=()=>{ rFilter=b.dataset.f; render(); });
+  document.querySelectorAll(".react").forEach(b=> b.onclick=()=>{
+    const r = recipes[+b.dataset.ri]; r.re[b.dataset.w] = !r.re[b.dataset.w];
+    save("meal-recipes",recipes); render();
+  });
+  document.querySelectorAll(".rdel").forEach(b=> b.onclick=()=>{
+    if(confirm("이 레시피를 지울까요?")){ recipes.splice(+b.dataset.del,1); save("meal-recipes",recipes); render(); }
+  });
+}
+
+/* ---------- 입맛 ---------- */
+function renderTastes(){
+  const p = $("page");
+  let h = '<div class="panel">';
+  [["j","지오"],["h","남편"],["m","나"]].forEach(([k,name])=>{
+    h += '<div class="tcard"><div class="who">'+name+'</div><textarea data-t="'+k+'">'+esc(tastes[k])+'</textarea></div>';
+  });
+  h += '</div><p class="hint">여기 적은 내용은 "식단 요청 목록"에 같이 들어가서, 클로드가 식단 짤 때 그대로 반영해요. 좋아하는 맛, 절대 안 먹는 것, 채소 숨기기 전략 같은 걸 자유롭게 적어두세요.</p>';
+  h += '<button class="pagebtn ghost" id="bkExport" style="margin-top:14px">전체 데이터 백업 (복사)</button>';
+  h += '<button class="pagebtn ghost" id="bkImport" style="margin-top:8px">백업에서 복원 (붙여넣기)</button>';
+  h += '<p class="hint">가끔 백업해서 메모 앱에 붙여넣어 두면, 폰을 바꾸거나 사파리 기록을 지워도 데이터를 되살릴 수 있어요.</p>';
+  p.innerHTML = h;
+  document.querySelectorAll("[data-t]").forEach(ta=> ta.oninput = ()=>{ tastes[ta.dataset.t]=ta.value; save("meal-tastes",tastes); });
+  $("bkExport").onclick = ()=>{
+    const all = JSON.stringify({fridge, week, recipes, tastes});
+    showSheet("백업 데이터 — 메모 앱에 붙여넣어 보관하세요", all);
+  };
+  $("bkImport").onclick = ()=>{
+    const v = prompt("백업해 둔 글을 붙여넣어 주세요");
+    if(!v) return;
+    try{
+      const d = JSON.parse(v);
+      if(d.fridge) fridge=d.fridge; if(d.week) week=d.week;
+      if(d.recipes) recipes=d.recipes; if(d.tastes) tastes=d.tastes;
+      ["fridge-inventory","meal-week","meal-recipes","meal-tastes"].forEach((k,i)=>{
+        localStorage.setItem(k, JSON.stringify([fridge,week,recipes,tastes][i]));
+      });
+      toast("복원됐어요!"); render();
+    }catch(e){ toast("백업 글이 아닌 것 같아요. 다시 확인해 주세요"); }
+  };
+}
+
+/* ---------- 내보내기 ---------- */
+function buildAskText(){
+  const today = new Date();
+  let t = "🧊 냉장고 재고 ("+(today.getMonth()+1)+"/"+today.getDate()+")\n";
+  SECTIONS.forEach(s=>{
+    if(fridge[s.k].length===0) return;
+    t += "["+s.name+"] " + fridge[s.k].map(x=> x.n+(x.s==="low"?"(조금)":"")).join(", ") + "\n";
+  });
+  t += "\n👅 가족 입맛\n";
+  t += "지오: "+tastes.j+"\n남편: "+tastes.h+"\n나: "+tastes.m+"\n";
+  const hits = recipes.filter(r=> WHO.some(w=>r.re[w.k]));
+  if(hits.length){
+    t += "\n⭐ 반응 좋았던 레시피\n";
+    hits.forEach(r=>{
+      const who = WHO.filter(w=>r.re[w.k]).map(w=>w.name).join("·");
+      t += "- "+r.n+" ("+who+" 👍)\n";
+    });
+  }
+  t += "\n📋 형식: 금~목 주간, 지오·남편용 아침/저녁(주말은 점심 포함), 저녁 요일테마 유지, 내 식단은 고정\n";
+  t += "\n→ 이걸로 이번 주 식단이랑 최소 장보기 목록 짜줘";
+  return t;
+}
+function buildWeekText(){
+  let t = "📅 이번 주 식단표 (금~목)\n";
+  DAYS.forEach(x=>{
+    const d = week.days[x.d];
+    t += "\n"+x.d+"요일";
+    if(d.b) t += "\n  아침: "+d.b;
+    if(d.l) t += "\n  점심: "+d.l;
+    if(d.n) t += "\n  저녁: "+d.n;
+  });
+  t += "\n\n간식: "+week.snack;
+  if(week.prep) t += "\n준비: "+week.prep;
+  return t;
+}
+async function showSheet(title, txt){
+  $("sheetTitle").textContent = title;
+  $("outText").value = txt;
+  $("sheet").classList.add("show");
+  try{
+    await navigator.clipboard.writeText(txt);
+    toast("복사됐어요! 붙여넣기만 하면 돼요");
+  }catch(e){
+    const ta=$("outText"); ta.focus(); ta.select();
+    toast("아래 글을 길게 눌러 복사해 주세요");
+  }
+}
+$("closeSheet").onclick = ()=> $("sheet").classList.remove("show");
+function toast(msg){
+  const t=$("toast"); t.textContent=msg; t.classList.add("show");
+  setTimeout(()=>t.classList.remove("show"), 2200);
+}
+init();
+</script>
+</body>
+</html>
