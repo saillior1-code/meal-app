@@ -167,7 +167,9 @@ let fridge = {cold:[], frz:[], veg:[], dry:[]};
 let week = null;
 let recipes = [];
 let tastes = null;
-let page = "fridge", fActive = "cold", rFilter = "all";
+let tags = [];
+const DEFAULT_TAGS = ["지오용","남편용","다이어트","밀프렙","간단 15분","국물요리","밑반찬"];
+let page = "fridge", fActive = "cold", rFilter = "all", rTagSel = [], rEditIdx = -1;
 let saveTimers = {};
 
 function $(id){return document.getElementById(id)}
@@ -207,6 +209,8 @@ function init(){
   week    = loadKey("meal-week", defaultWeek());
   recipes = loadKey("meal-recipes", []);
   tastes  = loadKey("meal-tastes", defaultTastes());
+  tags    = loadKey("meal-tags", DEFAULT_TAGS.slice());
+  recipes.forEach(r=>{ if(!r.tg) r.tg=[]; });
   render();
 }
 
@@ -311,45 +315,94 @@ function renderWeek(){
 }
 
 /* ---------- 레시피 ---------- */
+function tagChipsHtml(selected, prefix){
+  let h = '<div class="chips" style="margin-top:8px">';
+  tags.forEach(t=>{
+    const on = selected.includes(t);
+    h += '<button class="react'+(on?" on":"")+'" data-'+prefix+'="'+esc(t)+'" style="padding:6px 12px;font-size:13px">'+esc(t)+'</button>';
+  });
+  h += '<button class="chip" data-newtag="1">+ 새 분류</button></div>';
+  return h;
+}
 function renderRecipes(){
   const p = $("page");
   let h = '<div class="raddbox"><input id="rName" type="text" placeholder="요리 이름 (예: 버섯닭꼬치구이)">';
   h += '<textarea id="rMemo" placeholder="재료·포인트 메모 (선택)"></textarea>';
-  h += '<button class="pagebtn" id="rAdd" style="margin:0">레시피 추가</button></div>';
-  h += '<div class="filterrow"><button data-f="all"'+(rFilter==="all"?' class="on"':'')+'>전체</button><button data-f="hit"'+(rFilter==="hit"?' class="on"':'')+'>반응 좋았던 것</button></div>';
+  h += '<p class="sec-title" style="margin:2px 0 0">분류 (탭해서 선택)</p>';
+  h += tagChipsHtml(rTagSel, "tsel");
+  h += '<button class="pagebtn" id="rAdd" style="margin-top:10px">레시피 추가</button></div>';
+  h += '<div class="filterrow" style="flex-wrap:wrap"><button data-f="all"'+(rFilter==="all"?' class="on"':'')+'>전체</button><button data-f="hit"'+(rFilter==="hit"?' class="on"':'')+'>반응 좋았던 것</button>';
+  tags.forEach(t=>{
+    h += '<button data-f="tag:'+esc(t)+'"'+(rFilter==="tag:"+t?' class="on"':'')+'>'+esc(t)+'</button>';
+  });
+  h += '</div>';
   let list = recipes.map((r,i)=>({r,i}));
   if(rFilter==="hit") list = list.filter(x=> WHO.some(w=>x.r.re[w.k]));
+  else if(rFilter.startsWith("tag:")){
+    const t = rFilter.slice(4);
+    list = list.filter(x=> x.r.tg.includes(t));
+  }
   list.sort((a,b)=>{
     const sa = WHO.filter(w=>a.r.re[w.k]).length, sb = WHO.filter(w=>b.r.re[w.k]).length;
     return sb-sa;
   });
   if(list.length===0){
-    h += '<p class="empty" style="padding:10px 4px">아직 레시피가 없어요. 해본 요리를 적고, 반응 좋았던 사람을 탭해 두면 다음 식단 짤 때 클로드가 참고해요.</p>';
+    h += '<p class="empty" style="padding:10px 4px">'+(recipes.length===0?'아직 레시피가 없어요. 해본 요리를 적고, 반응 좋았던 사람을 탭해 두면 다음 식단 짤 때 클로드가 참고해요.':'이 분류에는 아직 레시피가 없어요.')+'</p>';
   }
   list.forEach(({r,i})=>{
     const hit = WHO.some(w=>r.re[w.k]);
     h += '<div class="rcard'+(hit?" hit":"")+'"><div class="rtop"><span class="rname">'+esc(r.n)+'</span><button class="rdel" data-del="'+i+'" aria-label="삭제">×</button></div>';
+    if(r.tg.length){
+      h += '<div class="chips" style="margin:4px 0 2px">';
+      r.tg.forEach(t=> h += '<span class="theme" style="font-size:11.5px">'+esc(t)+'</span>');
+      h += '</div>';
+    }
     if(r.m) h += '<p class="rmemo">'+esc(r.m)+'</p>';
-    h += '<div class="reacts">';
+    h += '<div class="reacts" style="flex-wrap:wrap">';
     WHO.forEach(w=>{
       h += '<button class="react'+(r.re[w.k]?" on":"")+'" data-ri="'+i+'" data-w="'+w.k+'">'+w.name+' 👍</button>';
     });
-    h += '</div></div>';
+    h += '<button class="react" data-edit="'+i+'" style="border-style:dashed">분류 ✎</button></div>';
+    if(rEditIdx===i) h += tagChipsHtml(r.tg, "tcard");
+    h += '</div>';
   });
   p.innerHTML = h;
 
   $("rAdd").onclick = ()=>{
     const n = $("rName").value.trim(); if(!n) return;
-    recipes.unshift({n:n, m:$("rMemo").value.trim(), re:{j:false,h:false,m:false}});
-    save("meal-recipes",recipes); render();
+    recipes.unshift({n:n, m:$("rMemo").value.trim(), re:{j:false,h:false,m:false}, tg:rTagSel.slice()});
+    rTagSel = []; save("meal-recipes",recipes); render();
   };
   document.querySelectorAll(".filterrow button").forEach(b=> b.onclick=()=>{ rFilter=b.dataset.f; render(); });
-  document.querySelectorAll(".react").forEach(b=> b.onclick=()=>{
+  document.querySelectorAll(".react[data-ri]").forEach(b=> b.onclick=()=>{
     const r = recipes[+b.dataset.ri]; r.re[b.dataset.w] = !r.re[b.dataset.w];
     save("meal-recipes",recipes); render();
   });
+  document.querySelectorAll("[data-edit]").forEach(b=> b.onclick=()=>{
+    rEditIdx = (rEditIdx===+b.dataset.edit ? -1 : +b.dataset.edit); render();
+  });
+  document.querySelectorAll("[data-tsel]").forEach(b=> b.onclick=()=>{
+    const t = b.dataset.tsel;
+    const ix = rTagSel.indexOf(t);
+    if(ix>=0) rTagSel.splice(ix,1); else rTagSel.push(t);
+    const name=$("rName").value, memo=$("rMemo").value;
+    render(); $("rName").value=name; $("rMemo").value=memo;
+  });
+  document.querySelectorAll("[data-tcard]").forEach(b=> b.onclick=()=>{
+    const r = recipes[rEditIdx]; const t = b.dataset.tcard;
+    const ix = r.tg.indexOf(t);
+    if(ix>=0) r.tg.splice(ix,1); else r.tg.push(t);
+    save("meal-recipes",recipes); render();
+  });
+  document.querySelectorAll("[data-newtag]").forEach(b=> b.onclick=()=>{
+    const v = prompt("새 분류 이름 (예: 도시락용)");
+    if(!v || !v.trim()) return;
+    const t = v.trim();
+    if(!tags.includes(t)){ tags.push(t); save("meal-tags",tags); }
+    render();
+  });
   document.querySelectorAll(".rdel").forEach(b=> b.onclick=()=>{
-    if(confirm("이 레시피를 지울까요?")){ recipes.splice(+b.dataset.del,1); save("meal-recipes",recipes); render(); }
+    if(confirm("이 레시피를 지울까요?")){ recipes.splice(+b.dataset.del,1); rEditIdx=-1; save("meal-recipes",recipes); render(); }
   });
 }
 
@@ -400,7 +453,8 @@ function buildAskText(){
     t += "\n⭐ 반응 좋았던 레시피\n";
     hits.forEach(r=>{
       const who = WHO.filter(w=>r.re[w.k]).map(w=>w.name).join("·");
-      t += "- "+r.n+" ("+who+" 👍)\n";
+      const tg = r.tg && r.tg.length ? " ["+r.tg.join(", ")+"]" : "";
+      t += "- "+r.n+tg+" ("+who+" 👍)\n";
     });
   }
   t += "\n📋 형식: 금~목 주간, 지오·남편용 아침/저녁(주말은 점심 포함), 저녁 요일테마 유지, 내 식단은 고정\n";
